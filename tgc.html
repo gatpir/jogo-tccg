@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCG Arena Interativa - Criador e Tabuleiro</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --background: #0b0f19;
+            --surface: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --gold: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--background); color: var(--text); padding: 1rem; }
+
+        h1, h2 { color: var(--gold); text-align: center; margin-bottom: 1rem; text-transform: uppercase; }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 1024px) {
+            .main-layout { grid-template-columns: 350px 1fr; }
+        }
+
+        /* Painel Lateral - Criador */
+        .creator-panel {
+            background-color: var(--surface);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            height: fit-content;
+        }
+
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.3rem; color: var(--text-muted); font-size: 0.85rem; font-weight: bold; }
+        input, textarea, select {
+            width: 100%; padding: 0.5rem; background-color: #0f172a; border: 1px solid #334155;
+            border-radius: 6px; color: white; font-size: 0.9rem;
+        }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+        
+        button.btn-add {
+            width: 100%; padding: 0.75rem; background-color: #22c55e; border: none;
+            border-radius: 6px; color: white; font-weight: bold; cursor: pointer;
+            margin-top: 1rem; font-size: 1rem; transition: background 0.2s;
+        }
+        button.btn-add:hover { background-color: #16a34a; }
+
+        /* Estilo da Carta Miniatura (Usada na Mão e Campo) */
+        .tcg-card {
+            width: 130px; height: 185px;
+            background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%);
+            border: 3px solid var(--gold); border-radius: 10px;
+            padding: 0.5rem; display: flex; flex-direction: column;
+            justify-content: space-between; position: relative;
+            cursor: grab; user-select: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        
+        /* Posição de Defesa (Rotacionada) */
+        .tcg-card.defense-mode {
+            transform: rotate(90deg);
+            border-color: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .card-top { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; }
+        .card-mid { flex-grow: 1; margin: 0.3rem 0; font-size: 0.65rem; background: rgba(0,0,0,0.3); padding: 0.2rem; border-radius: 4px; overflow: hidden; }
+        .card-type-tag { font-size: 0.55rem; color: var(--gold); text-transform: uppercase; font-weight: bold; }
+        .card-bottom { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; }
+        
+        /* Cores dos Tipos de Ataque */
+        .atk-fisico { color: #f87171; }
+        .atk-fogo { color: #f97316; text-shadow: 0 0 5px #f97316; }
+        .atk-gelo { color: #38bdf8; text-shadow: 0 0 5px #38bdf8; }
+        
+        .def-val { color: #4ade80; }
+
+        /* Arena de Jogo */
+        .arena { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .battlefield {
+            background-color: #0f172a; border: 3px dashed #334155;
+            border-radius: 12px; padding: 2rem; min-height: 250px;
+            display: flex; justify-content: center; align-items: center; gap: 2.5rem;
+            flex-wrap: wrap; position: relative;
+        }
+        .battlefield::before {
+            content: 'CAMPO DE BATALHA'; position: absolute; top: 10px; left: 15px;
+            font-size: 0.75rem; color: #475569; letter-spacing: 2px; font-weight: bold;
+        }
+
+        .hand-container {
+            background-color: #111827; border: 2px solid #1f2937;
+            border-radius: 12px; padding: 1rem; min-height: 210px;
+            display: flex; gap: 1rem; align-items: center; justify-content: center;
+            flex-wrap: wrap; position: relative;
+        }
+        .hand-container::before {
+            content: 'SUA MÃO'; position: absolute; top: 10px; left: 15px;
+            font-size: 0.75rem; color: #475569; letter-spacing: 2px; font-weight: bold;
+        }
+
+        /* Menu de Contexto das cartas jogadas */
+        .card-actions {
+            display: none; position: absolute; bottom: -30px; left: 50%;
+            transform: translateX(-50%); background: #1e293b; border: 1px solid var(--gold);
+            border-radius: 4px; padding: 2px; z-index: 10; gap: 4px;
+        }
+        .tcg-card:hover .card-actions { display: flex; }
+        .card-actions button {
+            background: #0f172a; border: none; color: white; font-size: 0.6rem;
+            padding: 2px 6px; cursor: pointer; border-radius: 2px;
+        }
+        .card-actions button:hover { background: var(--primary); }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <h1>TCG Arena Creator</h1>
+
+    <div class="main-layout">
+        <!-- Esquerda: Painel do Criador -->
+        <div class="creator-panel">
+            <h2>Criar Carta</h2>
+            
+            <div class="form-group">
+                <label>Nome da Carta</label>
+                <input type="text" id="inName" value="Guerreiro de Lava">
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de Carta</label>
+                <select id="inType">
+                    <option value="Criatura">Criatura</option>
+                    <option value="Feitiço">Feitiço</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="attackTypeGroup">
+                <label>Tipo de Ataque</label>
+                <select id="inAtkType">
+                    <option value="fisico">⚔️ Físico</option>
+                    <option value="fogo">🔥 Fogo</option>
+                    <option value="gelo">❄️ Gelo</option>
+                </select>
+            </div>
+
+            <div class="stats-grid">
+                <div class="form-group">
+                    <label>Custo ⚡</label>
+                    <input type="number" id="inCost" value="3" min="0">
+                </div>
+                <div class="form-group combat-field">
+                    <label>Atk ⚔️</label>
+                    <input type="number" id="inAtk" value="4" min="0">
+                </div>
+                <div class="form-group combat-field">
+                    <label>Vida ❤️</label>
+                    <input type="number" id="inDef" value="3" min="1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descrição</label>
+                <textarea id="inDesc" rows="2" placeholder="Efeito da carta...">Grito de Guerra: Queima um alvo.</textarea>
+            </div>
+
+            <button class="btn-add" onclick="createAndAddToHand()">Adicionar à Mão</button>
+        </div>
+
+        <!-- Direita: Tabuleiro e Mão -->
+        <div class="arena">
+            <!-- Campo de Batalha -->
+            <div class="battlefield" id="battlefieldZone">
+                <!-- As cartas jogadas em posição de Ataque ou Defesa entram aqui -->
+            </div>
+
+            <!-- Mão do Jogador -->
+            <div class="hand-container" id="handZone">
+                <!-- Novas cartas criadas aparecem aqui primeiro -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inType = document.getElementById('inType');
+        const attackTypeGroup = document.getElementById('attackTypeGroup');
+        const combatFields = document.querySelectorAll('.combat-field');
+
+        // Esconde campos de ataque se for feitiço
+        inType.addEventListener('change', () => {
+            if(inType.value === 'Feitiço') {
+                attackTypeGroup.classList.add('hidden');
+                combatFields.forEach(f => f.classList.add('hidden'));
+            } else {
+                attackTypeGroup.classList.remove('hidden');
+                combatFields.forEach(f => f.classList.remove('hidden'));
+            }
+        });
+
+        // Cria a estrutura lógica e visual da carta e coloca na Mão
+        function createAndAddToHand() {
+            const name = document.getElementById('inName').value || "Sem Nome";
+            const type = inType.value;
+            const cost = document.getElementById('inCost').value || "0";
+            const atk = document.getElementById('inAtk').value || "0";
+            const def = document.getElementById('inDef').value || "0";
+            const desc = document.getElementById('inDesc').value || "";
+            const atkType = document.getElementById('inAtkType').value;
+
+            // Elemento HTML da Carta
+            const cardEl = document.createElement('div');
+            cardEl.className = 'tcg-card';
+            
+            // Define o ícone com base no tipo de ataque customizado
+            let atkIcon = "⚔️";
+            let atkClass = "atk-fisico";
+            if(type === 'Criatura') {
+                if(atkType === 'fogo') { atkIcon = "🔥"; atkClass = "atk-fogo"; }
+                if(atkType === 'gelo') { atkIcon = "❄️"; atkClass = "atk-gelo"; }
+            }
+
+            cardEl.innerHTML = `
+                <div class="card-top">
+                    <span>${name}</span>
+                    <span style="color: #6366f1;">⚡${cost}</span>
+                </div>
+                <div class="card-mid">
+                    <div class="card-type-tag">${type}</div>
